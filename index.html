@@ -1,0 +1,108 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <title>PDOStatement::bindParam的一个陷阱 by pengming</title>
+
+    <link rel="stylesheet" href="stylesheets/styles.css">
+    <link rel="stylesheet" href="stylesheets/pygment_trac.css">
+    <script src="javascripts/scale.fix.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+
+    <!--[if lt IE 9]>
+    <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+  </head>
+  <body>
+    <div class="wrapper">
+      <header>
+        <h1>PDOStatement::bindParam的一个陷阱</h1>
+        <p>PHP</p>
+        <p class="view"><a href="https://github.com/pengming">View the Project on GitHub <small>pengming</small></a></p>
+        <ul>
+          <li class="single"><a href="">View On <strong>GitHub</strong></a></li>
+        </ul>
+      </header>
+      <section>
+        <p>本文地址: <a href="http://www.laruence.com/2012/10/16/2831.html">http://www.laruence.com/2012/10/16/2831.html</a></p>
+
+<p>废话不多说, 直接看代码:</p>
+
+<pre><code>&lt;?php
+$dbh = new PDO('mysql:host=localhost;dbname=test', "test");
+$query = &lt;&lt;&lt;QUERY
+  INSERT INTO `user` (`username`, `password`) VALUES (:username, :password);
+QUERY;
+$statement = $dbh-&gt;prepare($query);
+
+$bind_params = array(':username' =&gt; "laruence", ':password' =&gt; "weibo");
+foreach( $bind_params as $key =&gt; $value ){
+    $statement-&gt;bindParam($key, $value);
+}
+$statement-&gt;execute();
+</code></pre>
+
+<p>请问, 最终执行的SQL语句是什么, 上面的代码是否有什么问题?</p>
+
+<p>Okey, 我想大部分同学会认为, 最终执行的SQL是:</p>
+
+<pre><code>INSERT INTO `user` (`username`, `password`) VALUES ("laruence", "weibo");
+但是, 可惜的是, 你错了, 最终执行的SQL是:
+
+INSERT INTO `user` (`username`, `password`) VALUES ("weibo", "weibo");
+是不是很大的一个坑呢?
+</code></pre>
+
+<p><strong>—— 如果你想自己找到原因, 那么就不要继续往下读了———</strong></p>
+
+<p>这个问题, 来自今天的一个Bug报告: #63281</p>
+
+<p>究其原因, 也就是bindParam和bindValue的不同之处, bindParam要求第二个参数是一个引用变量(reference).</p>
+
+<p>让我们把上面的代码的foreach拆开, 也就是这个foreach:</p>
+
+<pre><code>&lt;?php
+foreach( $bind_params as $key =&gt; $value ){
+    $statement-&gt;bindParam($key, $value);
+}
+</code></pre>
+
+<p>相当于:</p>
+
+<pre><code>&lt;?php
+//第一次循环
+$value = $bind_params[":username"];
+$statement-&gt;bindParam(":username", &amp;$value); //此时, :username是对$value变量的引用
+
+//第二次循环
+$value = $bind_params[":password"]; //oops! $value被覆盖成了:password的值
+$statement-&gt;bindParam(":password", &amp;$value);
+所以, 在使用bindParam的时候, 尤其要注意和foreach联合使用的这个陷阱. 那么正确的作法呢?
+</code></pre>
+
+<ol>
+<li>不要使用foreach, 而是手动赋值</li>
+</ol><p>&lt;?php
+$statement-&gt;bindParam(":username", $bind_params[":username"]); //$value是引用变量了
+$statement-&gt;bindParam(":password", $bind_params[":password"]);
+2. 使用bindValue代替bindParam, 或者直接在execute中传递整个参数数组.</p>
+
+<ol>
+<li>使用foreach和reference(不推荐, 原因参看:微博)</li>
+</ol><pre><code>&lt;?php
+foreach( $bind_params as $key =&gt; &amp;$value ) { //注意这里
+    $statement-&gt;bindParam($key, $value);
+}
+</code></pre>
+
+<p>最后, 展开了说, 对于要求参数是引用, 并且有滞后处理的函数, 都要在使用foreach的时候, 谨慎!</p>
+      </section>
+    </div>
+    <footer>
+      <p>Hosted on GitHub Pages &mdash; Theme by <a href="https://github.com/orderedlist">orderedlist</a></p>
+    </footer>
+    <!--[if !IE]><script>fixScale(document);</script><![endif]-->
+    
+  </body>
+</html>
