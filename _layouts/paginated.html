@@ -1,0 +1,19 @@
+---
+layout: page
+---
+
+{{ content }}
+
+<!-- Pagination links -->
+<div>
+  {% if paginator.previous_page %}
+    {% if paginator.previous_page == 1 %}
+      <a href="/{{page.pagination_category}}">&larr;</a>
+    {% else %}
+      <a href="/{{page.pagination_category}}_page{{paginator.previous_page}}">&larr;</a>
+    {% endif %}
+  {% endif %}
+  {% if paginator.next_page %}
+    <a href="/{{page.pagination_category}}_page{{paginator.next_page}}">&rarr;</a>
+  {% endif %}
+</div>

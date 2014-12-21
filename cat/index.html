@@ -1,0 +1,11 @@
+---
+title: Archive
+layout: paginated
+pagination_category: cat
+---
+
+{% for post in paginator.posts %}
+  <h3><a href="{{ post.url }}"> {{ post.title }}</a></h3>
+  {{ post.content }}
+{% endfor %}
+
